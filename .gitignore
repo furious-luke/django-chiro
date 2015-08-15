@@ -55,3 +55,21 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# My stuff
+**~
+**.pyc
+**.swp
+build-*
+build/*
+dist/*
+*.egg-info
+**credentials.hh
+.project
+.pydevproject
+environ
+**db.sqlite3
+**.log
+**.out
+**.aux
+wiki

@@ -1,8 +1,9 @@
-import importlib, inspect, inflect, re, os
+import importlib, inspect, re
 from django.core.management.base import BaseCommand, CommandError
 from django.apps import apps
 from tastypie.resources import Resource
 from tastypie import fields
+from ._base import CommandMixin
 
 model_tmpl = '''///
 /// @file      {file_name}.js
@@ -78,18 +79,16 @@ define(
 );
 '''
 
-class Command(BaseCommand):
+class Command(CommandMixin, BaseCommand):
     help = 'Generate BackBone models from Tastypie API'
 
     def add_arguments(self, parser):
+        super(Command, self).add_arguments(parser)
         parser.add_argument('apps', nargs='+')
-        parser.add_argument('--destination', '-d', default='.', help='output path')
-        parser.add_argument('--namespace', '-n', help='add a namespace to files')
         parser.add_argument('--api', '-a', default='v1', help='API version name')
 
     def handle(self, *args, **options):
-        self.destination = options.get('destination', '.')
-        self.namespace = options.get('namespace', '')
+        super(Command, self).handle(*args, **options)
         self.api_name = options.get('api', '')
         self.models = []
         for app_name in options['apps']:
@@ -158,20 +157,6 @@ class Command(BaseCommand):
             (values['collection_file_name'], values['collection_name']),
         ])
 
-    def output(self, content, filename):
-        path = os.path.join(self.destination, filename)
-        if os.path.exists(path):
-            with open(path, 'r') as file:
-                orig = file.read()
-            if orig != content:
-                resp = self.query_yes_no('"%s" exists and has been manually changed, overwrite?'%path, default='no')
-                if not resp:
-                    path += '.new'
-            else:
-                return
-        with open(path, 'w') as file:
-            file.write(content)
-
     def generate_related(self, name, field, type):
         related_model = self.get_related_model(field)
         if related_model not in self.dependencies:
@@ -215,47 +200,3 @@ class Command(BaseCommand):
     def make_name(self, name):
         ridx = name.rfind('Resource')
         return name[:ridx]
-
-    def pluralize(self, name):
-        if name:
-            words = re.sub(r'([a-z])([A-Z])', '\g<1> \g<2>', name).split()
-            words[-1] = inflect.engine().plural(words[-1].lower())
-            plural = list(''.join(words))
-            for ii in range(len(name)):
-                if name[ii].isupper():
-                    plural[ii] = plural[ii].upper()
-            return ''.join(plural)
-        else:
-            return ''
-
-    def query_yes_no(self, question, default="yes"):
-        """Ask a yes/no question via raw_input() and return their answer.
-
-        "question" is a string that is presented to the user.
-        "default" is the presumed answer if the user just hits <Enter>.
-            It must be "yes" (the default), "no" or None (meaning
-            an answer is required of the user).
-
-        The "answer" return value is True for "yes" or False for "no".
-        """
-        valid = {"yes": True, "y": True, "ye": True,
-                 "no": False, "n": False}
-        if default is None:
-            prompt = " [y/n] "
-        elif default == "yes":
-            prompt = " [Y/n] "
-        elif default == "no":
-            prompt = " [y/N] "
-        else:
-            raise ValueError("invalid default answer: '%s'" % default)
-
-        while True:
-            self.stdout.write(question + prompt)
-            choice = input().lower()
-            if default is not None and choice == '':
-                return valid[default]
-            elif choice in valid:
-                return valid[choice]
-            else:
-                self.stdout.write("Please respond with 'yes' or 'no' "
-                                  "(or 'y' or 'n').\n")

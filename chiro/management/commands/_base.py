@@ -1,4 +1,4 @@
-import inflect, re, os
+import inflect, re, os, difflib
 
 class CommandMixin(object):
 
@@ -17,6 +17,9 @@ class CommandMixin(object):
             with open(path, 'r') as file:
                 orig = file.read()
             if orig != content:
+                diff = difflib.Differ().compare(orig.splitlines(), content.splitlines())
+                self.stdout.write('\n')
+                self.stdout.write('\n'.join(diff))
                 resp = self.query_yes_no('"%s" exists and has been manually changed, overwrite?'%path, default='no')
                 if not resp:
                     path += '.new'

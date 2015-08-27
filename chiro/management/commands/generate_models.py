@@ -13,8 +13,8 @@ model_tmpl = '''///
 ///
 
 define(
-    [ {file_dependencies} ],
-    function( {model_dependencies} ) {{
+    [ 'backbone', 'server_data', {file_dependencies}'backbone-relational', 'backbone.validation' ],
+    function( Backbone, sd{model_dependencies} ) {{
 
         ///
         /// {model_name} definition.
@@ -43,8 +43,8 @@ collection_tmpl = '''///
 ///
 
 define(
-    [ '{file_name}' ],
-    function( {model_name} ) {{
+    [ 'backbone', 'server_data', '{file_name}' ],
+    function( Backbone, sd, {model_name} ) {{
 
         ///
         /// {collection_name} collection definition.
@@ -72,9 +72,18 @@ wrapper_tmpl = '''///
 define(
     [ {files} ],
     function( {models} ) {{
-        return {{
+
+        // Cache the models in an object initially so we can then use
+        // that object as a scope for backbone relational.
+        var scope = {{
 {map}
         }};
+
+        // Have to update the Backbone store to find the models.
+        Backbone.Relational.store.addModelScope( scope );
+
+        // Now pass it back.
+        return scope;
     }}
 );
 '''
@@ -132,7 +141,8 @@ class Command(CommandMixin, BaseCommand):
         # Seems to be a race-condition with this... ?
         ii = 0
         while 1:
-            url = res().get_resource_uri()
+            # url = res().get_resource_uri()
+            url = 'sd.get( \'api.model.%s\' )'%name.lower()
             if url or ii == 100:
                 break
             ii += 1
@@ -143,13 +153,17 @@ class Command(CommandMixin, BaseCommand):
             'model_name': name,
             'file_dependencies': ', '.join(['\'%s\''%re.sub(r'([a-z])([A-Z])', r'\g<1>_\g<2>', d).lower() for d in self.dependencies]),
             'model_dependencies': ', '.join(self.dependencies),
-            'url': '\'%s\''%url,
+            'url': '%s'%url,
             'defaults': ',\n                '.join(['%s: \'\''%d for d in defaults]),
             'relations': ', '.join(related),
             'validation': ',\n                '.join(['%s: {}'%d for d in defaults]),
             'collection_file_name': re.sub(r'([a-z])([A-Z])', r'\g<1>_\g<2>', self.collection).lower(),
             'collection_name': self.collection,
         }
+        if values['file_dependencies']:
+            values['file_dependencies'] += ', '
+        if values['model_dependencies']:
+            values['model_dependencies'] = ', ' + values['model_dependencies']
         self.output(model_tmpl.format(**values), values['file_name'] + '.js')
         self.output(collection_tmpl.format(**values), values['collection_file_name'] + '.js')
         self.models.extend([
@@ -169,7 +183,7 @@ class Command(CommandMixin, BaseCommand):
         else:
             related_collection = ''
         if self.namespace:
-            reverse_collection_type = ',\n                    collectionType: \'%s.%s\''%(self.namespace, self.collection)
+            reverse_collection_type = ',\n                    collectionType: \'%s\''%self.collection
         else:
             reverse_collection_type = ''
         values = {

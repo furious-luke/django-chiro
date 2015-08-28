@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from .serial import Resource as Resource
@@ -21,3 +22,29 @@ class APIViewMixin(object):
     @method_decorator(ensure_csrf_cookie)
     def dispatch(self, *args, **kwargs):
         return super(APIViewMixin, self).dispatch(*args, **kwargs)
+
+class AjaxFormViewMixin(object):
+
+    def form_valid(self, form):
+        if self.request.is_ajax():
+            return JsonResponse({
+                'status': 200,
+                'content': {
+                    'status': 'success',
+                    'redirect': self.get_success_url(),
+                }
+            })
+        else:
+            super(AjaxFormViewMixin, self).form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.is_ajax():
+            return JsonResponse({
+                'status': 200,
+                'content': {
+                    'status': 'error',
+                    'errors': form.errors,
+                }
+            })
+        else:
+            super(AjaxFormViewMixin, self).form_invalid(form)

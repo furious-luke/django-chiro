@@ -11,8 +11,11 @@ class CommandMixin(object):
         self.destination = options.get('destination', '.')
         self.namespace = options.get('namespace', '')
 
-    def output(self, content, filename):
-        path = os.path.join(self.destination, filename)
+    def output(self, content, filename, sub=None):
+        if sub:
+            path = os.path.join(self.destination, sub, filename)
+        else:
+            path = os.path.join(self.destination, filename)
         if os.path.exists(path):
             with open(path, 'r') as file:
                 orig = file.read()
@@ -25,6 +28,10 @@ class CommandMixin(object):
                     path += '.new'
             else:
                 return
+        try:
+            os.makedirs(os.path.dirname(path))
+        except:
+            pass
         with open(path, 'w') as file:
             file.write(content)
 
